@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright © 2020 Skyline Team and Contributors (https://github.com/skyline-emu/)
+// Copyright © 2018-2020 fincs (https://github.com/devkitPro/deko3d)
 
+#include <boost/preprocessor/repeat.hpp>
 #include <soc.h>
 
 namespace skyline::soc::gm20b::engine::maxwell3d {
@@ -76,7 +78,7 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
         state.logger->Debug("Called method in Maxwell 3D: 0x{:X} args: 0x{:X}", params.method, params.argument);
 
         // Methods that are greater than the register size are for macro control
-        if (params.method > RegisterCount) {
+        if (params.method >= RegisterCount) {
             if (!(params.method & 1))
                 macroInvocation.index = ((params.method - RegisterCount) >> 1) % macroPositions.size();
 
@@ -98,6 +100,12 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
             shadowRegisters.raw[params.method] = params.argument;
         else if (shadowRegisters.mme.shadowRamControl == type::MmeShadowRamControl::MethodReplay)
             params.argument = shadowRegisters.raw[params.method];
+
+        #define MAXWELL3D_OFFSET(field) U32_OFFSET(Registers, field)
+        #define MAXWELL3D_STRUCT_OFFSET(field, member) U32_OFFSET(Registers, field) + offsetof(typeof(Registers::field), member)
+        #define MAXWELL3D_ARRAY_OFFSET(field, index) U32_OFFSET(Registers, field) + ((sizeof(typeof(Registers::field[0])) / sizeof(u32)) * index)
+        #define MAXWELL3D_ARRAY_STRUCT_OFFSET(field, index, member) MAXWELL3D_ARRAY_OFFSET(field, index) + U32_OFFSET(typeof(Registers::field[0]), member)
+        #define MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET(field, index, member, submember) MAXWELL3D_ARRAY_STRUCT_OFFSET(field, index, member) + U32_OFFSET(typeof(Registers::field[0].member), submember)
 
         switch (params.method) {
             case MAXWELL3D_OFFSET(mme.instructionRamLoad):
@@ -123,7 +131,43 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                 state.soc->host1x.syncpoints.at(registers.syncpointAction.id).Increment();
                 break;
 
-                #define VIEWPORT_TRANSFORM_CALLBACKS(index)                                                                                   \
+                #define RENDER_TARGET_ARRAY(z, index, data)                                 \
+            case MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET(renderTargets, index, address, high): \
+                context.SetRenderTargetAddressHigh(index, params.argument);                 \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET(renderTargets, index, address, low):  \
+                context.SetRenderTargetAddressLow(index, params.argument);                  \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, width):                \
+                context.SetRenderTargetAddressWidth(index, params.argument);                \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, height):               \
+                context.SetRenderTargetAddressHeight(index, params.argument);               \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, format):               \
+                context.SetRenderTargetAddressFormat(index,                                 \
+                        static_cast<type::RenderTarget::ColorFormat>(params.argument));     \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, tileMode):             \
+                context.SetRenderTargetTileMode(index,                                      \
+                       *reinterpret_cast<type::RenderTarget::TileMode*>(&params.argument)); \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, arrayMode):            \
+                context.SetRenderTargetArrayMode(index,                                     \
+                      *reinterpret_cast<type::RenderTarget::ArrayMode*>(&params.argument)); \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, layerStrideLsr2):      \
+                context.SetRenderTargetLayerStride(index, params.argument);                 \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, baseLayer):            \
+                context.SetRenderTargetBaseLayer(index, params.argument);                   \
+                break;
+
+                BOOST_PP_REPEAT(8, RENDER_TARGET_ARRAY, 0)
+                static_assert(type::RenderTargetCount == 8 && type::RenderTargetCount < BOOST_PP_LIMIT_REPEAT);
+                #undef RENDER_TARGET_ARRAY
+
+                #define VIEWPORT_TRANSFORM_CALLBACKS(z, index, data)                                                                               \
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(viewportTransforms, index, scaleX):                                                        \
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(viewportTransforms, index, translateX):                                                    \
                 context.SetViewportX(index, registers.viewportTransforms[index].scaleX, registers.viewportTransforms[index].translateX);  \
@@ -135,29 +179,22 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(viewportTransforms, index, scaleZ):                                                        \
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(viewportTransforms, index, translateZ):                                                    \
                 context.SetViewportZ(index, registers.viewportTransforms[index].scaleY, registers.viewportTransforms[index].translateY);  \
-                break
+                break;
 
-            VIEWPORT_TRANSFORM_CALLBACKS(0);
-            VIEWPORT_TRANSFORM_CALLBACKS(1);
-            VIEWPORT_TRANSFORM_CALLBACKS(2);
-            VIEWPORT_TRANSFORM_CALLBACKS(3);
-            VIEWPORT_TRANSFORM_CALLBACKS(4);
-            VIEWPORT_TRANSFORM_CALLBACKS(5);
-            VIEWPORT_TRANSFORM_CALLBACKS(6);
-            VIEWPORT_TRANSFORM_CALLBACKS(7);
-            VIEWPORT_TRANSFORM_CALLBACKS(8);
-            VIEWPORT_TRANSFORM_CALLBACKS(9);
-            VIEWPORT_TRANSFORM_CALLBACKS(10);
-            VIEWPORT_TRANSFORM_CALLBACKS(11);
-            VIEWPORT_TRANSFORM_CALLBACKS(12);
-            VIEWPORT_TRANSFORM_CALLBACKS(13);
-            VIEWPORT_TRANSFORM_CALLBACKS(14);
-            VIEWPORT_TRANSFORM_CALLBACKS(15);
-
-                static_assert(type::ViewportCount == 16);
+                BOOST_PP_REPEAT(16, VIEWPORT_TRANSFORM_CALLBACKS, 0)
+                static_assert(type::ViewportCount == 16 && type::ViewportCount < BOOST_PP_LIMIT_REPEAT);
                 #undef VIEWPORT_TRANSFORM_CALLBACKS
 
-                #define SCISSOR_CALLBACKS(index)                                                                             \
+                #define COLOR_CLEAR_CALLBACKS(z, index, data)          \
+            case MAXWELL3D_ARRAY_OFFSET(clearColorValue, index):       \
+                context.UpdateClearColorValue(index, params.argument); \
+                break;
+
+                BOOST_PP_REPEAT(4, COLOR_CLEAR_CALLBACKS, 0)
+                static_assert(4 < BOOST_PP_LIMIT_REPEAT);
+                #undef COLOR_CLEAR_CALLBACKS
+
+                #define SCISSOR_CALLBACKS(z, index, data)                                                                \
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(scissors, index, enable):                                                 \
                 context.SetScissor(index, params.argument ? registers.scissors[index] : std::optional<type::Scissor>{}); \
                 break;                                                                                                   \
@@ -166,27 +203,19 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                 break;                                                                                                   \
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(scissors, index, vertical):                                               \
                 context.SetScissorVertical(index, registers.scissors[index].vertical);                                   \
-                break
+                break;
 
-            SCISSOR_CALLBACKS(0);
-            SCISSOR_CALLBACKS(1);
-            SCISSOR_CALLBACKS(2);
-            SCISSOR_CALLBACKS(3);
-            SCISSOR_CALLBACKS(4);
-            SCISSOR_CALLBACKS(5);
-            SCISSOR_CALLBACKS(6);
-            SCISSOR_CALLBACKS(7);
-            SCISSOR_CALLBACKS(8);
-            SCISSOR_CALLBACKS(9);
-            SCISSOR_CALLBACKS(10);
-            SCISSOR_CALLBACKS(11);
-            SCISSOR_CALLBACKS(12);
-            SCISSOR_CALLBACKS(13);
-            SCISSOR_CALLBACKS(14);
-            SCISSOR_CALLBACKS(15);
-
-                static_assert(type::ViewportCount == 16);
+                BOOST_PP_REPEAT(16, SCISSOR_CALLBACKS, 0)
+                static_assert(type::ViewportCount == 16 && type::ViewportCount < BOOST_PP_LIMIT_REPEAT);
                 #undef SCISSOR_CALLBACKS
+
+            case MAXWELL3D_OFFSET(renderTargetControl):
+                context.UpdateRenderTargetControl(registers.renderTargetControl);
+                break;
+
+            case MAXWELL3D_OFFSET(clearBuffers):
+                context.ClearBuffers(registers.clearBuffers);
+                break;
 
             case MAXWELL3D_OFFSET(semaphore.info):
                 switch (registers.semaphore.info.op) {
@@ -217,6 +246,12 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                 registers.raw[0xD00] = 1;
                 break;
         }
+
+        #undef MAXWELL3D_OFFSET
+        #undef MAXWELL3D_STRUCT_OFFSET
+        #undef MAXWELL3D_ARRAY_OFFSET
+        #undef MAXWELL3D_ARRAY_STRUCT_OFFSET
+        #undef MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET
     }
 
     void Maxwell3D::WriteSemaphoreResult(u64 result) {
