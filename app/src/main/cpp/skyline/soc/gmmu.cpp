@@ -211,4 +211,37 @@ namespace skyline::soc::gmmu {
             }
         }
     }
+
+    std::vector<span<u8>> GraphicsMemoryManager::Translate(u64 virtualAddress, size_t size) {
+        std::shared_lock lock(mutex);
+
+        auto chunk{std::upper_bound(chunks.begin(), chunks.end(), virtualAddress, [](const u64 address, const ChunkDescriptor &chunk) -> bool {
+            return address < chunk.virtualAddress;
+        })};
+
+        if (chunk == chunks.end() || chunk->state != ChunkState::Mapped)
+            throw exception("Failed to retrieve region in GPU address space: Address: 0x{:X}, Size: 0x{:X}", virtualAddress, size);
+
+        chunk--;
+
+        u64 initialSize{size};
+        u64 chunkOffset{virtualAddress - chunk->virtualAddress};
+        u8 *source{chunk->cpuPtr + chunkOffset};
+        u64 sourceSize{std::min(chunk->size - chunkOffset, size)};
+
+        std::vector<span<u8>> mappings;
+        while (size) {
+            mappings.emplace_back(source, sourceSize);
+
+            size -= sourceSize;
+            if (size) {
+                if (++chunk == chunks.end() || chunk->state != ChunkState::Mapped)
+                    throw exception("Failed to retrieve region in GPU address space: Address: 0x{:X}, Size: 0x{:X}", virtualAddress, size);
+
+                source = chunk->cpuPtr;
+                sourceSize = std::min(chunk->size, size);
+            }
+        }
+        return mappings;
+    }
 }

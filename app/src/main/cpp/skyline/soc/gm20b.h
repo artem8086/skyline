@@ -13,6 +13,7 @@ namespace skyline::soc::gm20b {
      */
     class GM20B {
       public:
+        gmmu::GraphicsMemoryManager gmmu;
         engine::Engine fermi2D;
         engine::maxwell3d::Maxwell3D maxwell3D;
         engine::Engine maxwellCompute;
@@ -20,6 +21,6 @@ namespace skyline::soc::gm20b {
         engine::Engine keplerMemory;
         GPFIFO gpfifo;
 
-        GM20B(const DeviceState &state) : fermi2D(state), keplerMemory(state), maxwell3D(state), maxwellCompute(state), maxwellDma(state), gpfifo(state) {}
+        GM20B(const DeviceState &state) : gmmu(state), fermi2D(state), keplerMemory(state), maxwell3D(state, gmmu), maxwellCompute(state), maxwellDma(state), gpfifo(state) {}
     };
 }

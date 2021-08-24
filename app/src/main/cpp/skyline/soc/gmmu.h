@@ -136,5 +136,10 @@ namespace skyline::soc::gmmu {
         void Write(T source, u64 virtualAddress) {
             Write(reinterpret_cast<u8 *>(&source), virtualAddress, sizeof(T));
         }
+
+        /**
+         * @brief Translates a block of GMMU AS into corresponding CPU AS mappings
+         */
+        std::vector<span<u8>> Translate(u64 virtualAddress, size_t size);
     };
 }

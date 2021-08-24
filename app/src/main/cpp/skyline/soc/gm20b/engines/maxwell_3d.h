@@ -245,7 +245,7 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
 
         std::array<u32, 0x10000> macroCode{}; //!< Stores GPU macros, the 256KiB size is from Ryujinx
 
-        Maxwell3D(const DeviceState &state);
+        Maxwell3D(const DeviceState &state, gmmu::GraphicsMemoryManager &gmmu);
 
         /**
          * @brief Resets the Maxwell 3D registers to their default values

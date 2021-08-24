@@ -14,10 +14,10 @@ namespace skyline::soc {
      */
     class SOC {
       public:
-        gmmu::GraphicsMemoryManager gmmu;
         host1x::Host1X host1x;
         gm20b::GM20B gm20b;
+        gmmu::GraphicsMemoryManager& gmmu;
 
-        SOC(const DeviceState &state) : gmmu(state), gm20b(state) {}
+        SOC(const DeviceState &state) : gm20b(state), gmmu(gm20b.gmmu) {}
     };
 }
