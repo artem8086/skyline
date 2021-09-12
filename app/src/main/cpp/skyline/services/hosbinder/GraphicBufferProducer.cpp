@@ -342,26 +342,24 @@ namespace skyline::service::hosbinder {
             if (surface.size > (nvMapHandleObj->origSize - surface.offset))
                 throw exception("Surface doesn't fit into NvMap mapping of size 0x{:X} when mapped at 0x{:X} -> 0x{:X}", nvMapHandleObj->origSize, surface.offset, surface.offset + surface.size);
 
-            gpu::texture::TileMode tileMode;
             gpu::texture::TileConfig tileConfig{};
             if (surface.layout == NvSurfaceLayout::Blocklinear) {
-                tileMode = gpu::texture::TileMode::Block;
                 tileConfig = {
-                    .surfaceWidth = static_cast<u16>(surface.width),
+                    .mode = gpu::texture::TileMode::Block,
                     .blockHeight = static_cast<u8>(1U << surface.blockHeightLog2),
                     .blockDepth = 1,
                 };
             } else if (surface.layout == NvSurfaceLayout::Pitch) {
-                tileMode = gpu::texture::TileMode::Pitch;
                 tileConfig = {
+                    .mode = gpu::texture::TileMode::Pitch,
                     .pitch = surface.pitch,
                 };
             } else if (surface.layout == NvSurfaceLayout::Tiled) {
                 throw exception("Legacy 16Bx16 tiled surfaces are not supported");
             }
 
-            auto guestTexture{std::make_shared<gpu::GuestTexture>(state, nvMapHandleObj->GetPointer() + surface.offset, gpu::texture::Dimensions(surface.width, surface.height), format, tileMode, tileConfig)};
-            buffer.texture = guestTexture->CreateTexture({}, vk::ImageTiling::eLinear);
+            gpu::GuestTexture guestTexture(span<u8>(nvMapHandleObj->GetPointer() + surface.offset, surface.size), gpu::texture::Dimensions(surface.width, surface.height), format, tileConfig, gpu::texture::TextureType::e2D);
+            buffer.texture = state.gpu->texture.FindOrCreate(guestTexture).backing;
         }
 
         switch (transform) {

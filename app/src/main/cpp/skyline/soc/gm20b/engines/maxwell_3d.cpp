@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright © 2020 Skyline Team and Contributors (https://github.com/skyline-emu/)
+// Copyright © 2018-2020 fincs (https://github.com/devkitPro/)
 
 #include <soc.h>
 
@@ -76,7 +77,7 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
         state.logger->Debug("Called method in Maxwell 3D: 0x{:X} args: 0x{:X}", params.method, params.argument);
 
         // Methods that are greater than the register size are for macro control
-        if (params.method > RegisterCount) {
+        if (params.method >= RegisterCount) {
             if (!(params.method & 1))
                 macroInvocation.index = ((params.method - RegisterCount) >> 1) % macroPositions.size();
 
@@ -98,6 +99,12 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
             shadowRegisters.raw[params.method] = params.argument;
         else if (shadowRegisters.mme.shadowRamControl == type::MmeShadowRamControl::MethodReplay)
             params.argument = shadowRegisters.raw[params.method];
+
+        #define MAXWELL3D_OFFSET(field) U32_OFFSET(Registers, field)
+        #define MAXWELL3D_STRUCT_OFFSET(field, member) U32_OFFSET(Registers, field) + offsetof(typeof(Registers::field), member)
+        #define MAXWELL3D_ARRAY_OFFSET(field, index) U32_OFFSET(Registers, field) + ((sizeof(typeof(Registers::field[0])) / sizeof(u32)) * index)
+        #define MAXWELL3D_ARRAY_STRUCT_OFFSET(field, index, member) MAXWELL3D_ARRAY_OFFSET(field, index) + U32_OFFSET(typeof(Registers::field[0]), member)
+        #define MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET(field, index, member, submember) MAXWELL3D_ARRAY_STRUCT_OFFSET(field, index, member) + U32_OFFSET(typeof(Registers::field[0].member), submember)
 
         switch (params.method) {
             case MAXWELL3D_OFFSET(mme.instructionRamLoad):
@@ -122,6 +129,50 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                 state.logger->Debug("Increment syncpoint: {}", static_cast<u16>(registers.syncpointAction.id));
                 state.soc->host1x.syncpoints.at(registers.syncpointAction.id).Increment();
                 break;
+
+                #define RENDER_TARGET_ARRAY(index)                                 \
+            case MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET(renderTargets, index, address, high): \
+                context.SetRenderTargetAddressHigh(index, params.argument);                 \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET(renderTargets, index, address, low):  \
+                context.SetRenderTargetAddressLow(index, params.argument);                  \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, width):                \
+                context.SetRenderTargetAddressWidth(index, params.argument);                \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, height):               \
+                context.SetRenderTargetAddressHeight(index, params.argument);               \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, format):               \
+                context.SetRenderTargetAddressFormat(index,                                 \
+                        static_cast<type::RenderTarget::ColorFormat>(params.argument));     \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, tileMode):             \
+                context.SetRenderTargetTileMode(index,                                      \
+                       *reinterpret_cast<type::RenderTarget::TileMode*>(&params.argument)); \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, arrayMode):            \
+                context.SetRenderTargetArrayMode(index,                                     \
+                      *reinterpret_cast<type::RenderTarget::ArrayMode*>(&params.argument)); \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, layerStrideLsr2):      \
+                context.SetRenderTargetLayerStride(index, params.argument);                 \
+                break;                                                                      \
+            case MAXWELL3D_ARRAY_STRUCT_OFFSET(renderTargets, index, baseLayer):            \
+                context.SetRenderTargetBaseLayer(index, params.argument);                   \
+                break;
+
+            RENDER_TARGET_ARRAY(0)
+            RENDER_TARGET_ARRAY(1)
+            RENDER_TARGET_ARRAY(2)
+            RENDER_TARGET_ARRAY(3)
+            RENDER_TARGET_ARRAY(4)
+            RENDER_TARGET_ARRAY(5)
+            RENDER_TARGET_ARRAY(6)
+            RENDER_TARGET_ARRAY(7)
+
+                static_assert(type::RenderTargetCount == 8);
+                #undef RENDER_TARGET_ARRAY
 
                 #define VIEWPORT_TRANSFORM_CALLBACKS(index)                                                                                   \
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(viewportTransforms, index, scaleX):                                                        \
@@ -157,6 +208,19 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                 static_assert(type::ViewportCount == 16);
                 #undef VIEWPORT_TRANSFORM_CALLBACKS
 
+                #define COLOR_CLEAR_CALLBACKS(index)          \
+            case MAXWELL3D_ARRAY_OFFSET(clearColorValue, index):       \
+                context.UpdateClearColorValue(index, params.argument); \
+                break;
+
+            COLOR_CLEAR_CALLBACKS(0)
+            COLOR_CLEAR_CALLBACKS(1)
+            COLOR_CLEAR_CALLBACKS(2)
+            COLOR_CLEAR_CALLBACKS(3)
+
+                #undef COLOR_CLEAR_CALLBACKS
+
+
                 #define SCISSOR_CALLBACKS(index)                                                                             \
             case MAXWELL3D_ARRAY_STRUCT_OFFSET(scissors, index, enable):                                                 \
                 context.SetScissor(index, params.argument ? registers.scissors[index] : std::optional<type::Scissor>{}); \
@@ -188,6 +252,14 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                 static_assert(type::ViewportCount == 16);
                 #undef SCISSOR_CALLBACKS
 
+            case MAXWELL3D_OFFSET(renderTargetControl):
+                context.UpdateRenderTargetControl(registers.renderTargetControl);
+                break;
+
+            case MAXWELL3D_OFFSET(clearBuffers):
+                context.ClearBuffers(registers.clearBuffers);
+                break;
+
             case MAXWELL3D_OFFSET(semaphore.info):
                 switch (registers.semaphore.info.op) {
                     case type::SemaphoreInfo::Op::Release:
@@ -217,6 +289,12 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                 registers.raw[0xD00] = 1;
                 break;
         }
+
+        #undef MAXWELL3D_OFFSET
+        #undef MAXWELL3D_STRUCT_OFFSET
+        #undef MAXWELL3D_ARRAY_OFFSET
+        #undef MAXWELL3D_ARRAY_STRUCT_OFFSET
+        #undef MAXWELL3D_ARRAY_STRUCT_STRUCT_OFFSET
     }
 
     void Maxwell3D::WriteSemaphoreResult(u64 result) {

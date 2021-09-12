@@ -406,6 +406,31 @@ namespace skyline {
             copy_from(span<typename std::add_const<typename In::value_type>::type>(in), amount);
         }
 
+        /**
+         * @return If a supplied span is located entirely inside this span and is effectively a subspan
+         */
+        constexpr bool contains(const span<T, Extent>& other) const {
+            return this->begin() >= other.begin() && this->size() <= other.size();
+        }
+
+        /** Comparision operators for equality and binary searches **/
+
+        constexpr bool operator==(const span<T, Extent>& other) const {
+            return this->data() == other.data() && this->size() == other.size();
+        }
+
+        constexpr bool operator<(const span<T, Extent> &other) const {
+            return this->data() < other.data();
+        }
+
+        constexpr bool operator<(T* pointer) const {
+            return this->data() < pointer;
+        }
+
+        constexpr bool operator<(typename std::span<T, Extent>::const_iterator it) const {
+            return this->begin() < it;
+        }
+
         /** Base Class Functions that return an instance of it, we upcast them **/
         template<size_t Count>
         constexpr span<T, Count> first() const noexcept {
@@ -610,11 +635,11 @@ namespace skyline {
         struct ThreadContext;
     }
     class JvmManager;
-    namespace soc {
-        class SOC;
-    }
     namespace gpu {
         class GPU;
+    }
+    namespace soc {
+        class SOC;
     }
     namespace kernel {
         namespace type {
