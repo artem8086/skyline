@@ -339,6 +339,14 @@ namespace skyline {
         constexpr std::size_t Hash(std::string_view view) {
             return frz::elsa<frz::string>{}(frz::string(view.data(), view.size()), 0);
         }
+
+        /**
+         * @brief A temporary shim for C++ 20's bit_cast to make transitioning to it easier
+         */
+        template<typename To, typename From>
+        To BitCast(const From& from) {
+            return *reinterpret_cast<const To*>(&from);
+        }
     }
 
     /**

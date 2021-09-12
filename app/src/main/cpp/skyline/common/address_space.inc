@@ -204,6 +204,41 @@ namespace skyline {
         MapLocked(virt, phys, size, flag);
     }
 
+    MAP_MEMBER(std::vector<span<u8>>)::Translate(VaType virt, size_t size) {
+        std::scoped_lock lock(blockMutex);
+
+        auto block{std::lower_bound(blocks.begin(), blocks.end(), virt + size)};
+
+        if (block == blocks.end() || block->Unmapped())
+            throw exception("Failed to retrieve region in GPU address space: Address: 0x{:X}, Size: 0x{:X}", virt, size);
+
+        u64 initialSize{size};
+        u64 blockStart{block->virt};
+        u64 blockSize{(block+1)->virt - blockStart};
+
+        u64 blockOffset{virt - blockStart};
+        u8 *source{reinterpret_cast<u8*>(block->phys + blockOffset)};
+        u64 sourceSize{std::min(blockSize - blockOffset, size)};
+
+        std::vector<span<u8>> mappings;
+        while (size) {
+            mappings.emplace_back(source, sourceSize);
+
+            size -= sourceSize;
+            if (size) {
+                block += 2;
+                if (block == blocks.end() || block->Unmapped())
+                    throw exception("Failed to retrieve region in GPU address space: Address: 0x{:X}, Size: 0x{:X}", virt, size);
+
+                source = reinterpret_cast<u8*>(block->phys);
+                blockStart = block->virt;
+                blockSize = (block + 1)->virt - blockStart;
+                sourceSize = std::min(blockSize, size);
+            }
+        }
+        return mappings;
+    }
+
     MAP_MEMBER(void)::Unmap(VaType virt, VaType size) {
         std::scoped_lock lock(blockMutex);
         UnmapLocked(virt, size);

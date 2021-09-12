@@ -79,6 +79,11 @@ namespace skyline {
          * @brief Locked version of UnmapLocked
          */
         void Unmap(VaType virt, VaType size);
+
+        /**
+         * @brief Translates a block of GMMU AS into corresponding CPU AS mappings
+         */
+        std::vector<span<u8>> Translate(VaType virt, size_t size);
     };
 
     /**
