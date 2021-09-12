@@ -207,10 +207,14 @@ namespace skyline {
     MAP_MEMBER(std::vector<span<u8>>)::Translate(VaType virt, size_t size) {
         std::scoped_lock lock(blockMutex);
 
-        auto block{std::lower_bound(blocks.begin(), blocks.end(), virt + size)};
+        auto block{std::upper_bound(blocks.begin(), blocks.end(), virt + size, [](const VaType address, const Block &block) -> bool {
+            return address < block.virt;
+        })};
 
         if (block == blocks.end() || block->Unmapped())
             throw exception("Failed to retrieve region in GPU address space: Address: 0x{:X}, Size: 0x{:X}", virt, size);
+
+        block--;
 
         u64 initialSize{size};
         u64 blockStart{block->virt};
