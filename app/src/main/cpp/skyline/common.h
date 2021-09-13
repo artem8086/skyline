@@ -418,7 +418,7 @@ namespace skyline {
          * @return If a supplied span is located entirely inside this span and is effectively a subspan
          */
         constexpr bool contains(const span<T, Extent>& other) const {
-            return this->begin() >= other.begin() && this->size() <= other.size();
+            return this->begin() <= other.begin() && this->end() >= other.end();
         }
 
         /** Comparision operators for equality and binary searches **/
