@@ -35,30 +35,35 @@ namespace skyline::service::nvdrv {
         return NVRESULT(NvResult::Success);
     }
 
-    static NvResultValue<span<u8>> GetMainIoctlBuffer(IoctlDescriptor ioctl, span<u8> inBuf, span<u8> outBuf) {
-        if (ioctl.in && inBuf.size() < ioctl.size)
+    static NvResultValue<span<u8>> GetMainIoctlBuffer(IoctlDescriptor ioctl, std::vector<span<u8>> &inBuf, std::vector<span<u8>> &outBuf) {
+        if (ioctl.in && (inBuf.empty() || inBuf[0].size() < ioctl.size))
             return NvResult::InvalidSize;
 
-        if (ioctl.out && outBuf.size() < ioctl.size)
+        if (ioctl.out && (outBuf.empty() || outBuf[0].size() < ioctl.size))
             return NvResult::InvalidSize;
 
         if (ioctl.in && ioctl.out) {
-            if (outBuf.size() < inBuf.size())
+            auto in{inBuf[0]};
+            auto out{outBuf[0]};
+
+            if (out.size() < in.size())
                 return NvResult::InvalidSize;
 
             // Copy in buf to out buf for inout ioctls to avoid needing to pass around two buffers everywhere
-            if (outBuf.data() != inBuf.data())
-                outBuf.copy_from(inBuf, ioctl.size);
+            if (out.data() != in.data())
+                out.copy_from(in, ioctl.size);
+
+            return out;
         }
 
-        return ioctl.out ? outBuf : inBuf;
+        return ioctl.out ? outBuf[0] : inBuf[0];
     }
 
     Result INvDrvServices::Ioctl(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response) {
         auto fd{request.Pop<FileDescriptor>()};
         auto ioctl{request.Pop<IoctlDescriptor>()};
 
-        auto buf{GetMainIoctlBuffer(ioctl, request.inputBuf.at(0), request.outputBuf.at(0))};
+        auto buf{GetMainIoctlBuffer(ioctl, request.inputBuf, request.outputBuf)};
         if (!buf)
             return NVRESULT(buf);
         else
@@ -103,7 +108,7 @@ namespace skyline::service::nvdrv {
         // The inline buffer is technically not required
         auto inlineBuf{request.inputBuf.size() > 1 ? request.inputBuf.at(1) : span<u8>{}};
 
-        auto buf{GetMainIoctlBuffer(ioctl, request.inputBuf.at(0), request.outputBuf.at(0))};
+        auto buf{GetMainIoctlBuffer(ioctl, request.inputBuf, request.outputBuf)};
         if (!buf)
             return NVRESULT(buf);
         else
@@ -117,7 +122,7 @@ namespace skyline::service::nvdrv {
         // The inline buffer is technically not required
         auto inlineBuf{request.outputBuf.size() > 1 ? request.outputBuf.at(1) : span<u8>{}};
 
-        auto buf{GetMainIoctlBuffer(ioctl, request.inputBuf.at(0), request.outputBuf.at(0))};
+        auto buf{GetMainIoctlBuffer(ioctl, request.inputBuf, request.outputBuf)};
         if (!buf)
             return NVRESULT(buf);
         else
