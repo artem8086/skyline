@@ -25,7 +25,6 @@
 #include <fmt/format.h>
 #include <frozen/unordered_map.h>
 #include <frozen/string.h>
-#include <boost/container/small_vector.hpp>
 #include <jni.h>
 
 #define FORCE_INLINE __attribute__((always_inline)) // NOLINT(cppcoreguidelines-macro-usage)

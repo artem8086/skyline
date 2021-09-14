@@ -68,11 +68,6 @@ include_directories(libraries/perfetto/sdk)
 add_library(perfetto STATIC libraries/perfetto/sdk/perfetto.cc)
 target_compile_options(perfetto PRIVATE -Wno-everything)
 
-# Boost
-set(Boost_USE_STATIC_LIBS ON)
-set(Boost_USE_MULTITHREADED ON)
-add_subdirectory("libraries/boost")
-
 # Skyline
 add_library(skyline SHARED
         ${source_DIR}/emu_jni.cpp
@@ -229,5 +224,5 @@ add_library(skyline SHARED
         )
 target_include_directories(skyline PRIVATE ${source_DIR}/skyline)
 # target_precompile_headers(skyline PRIVATE ${source_DIR}/skyline/common.h) # PCH will currently break Intellisense
-target_link_libraries(skyline android perfetto fmt lz4_static tzcode oboe vkma mbedcrypto opus Boost::container)
+target_link_libraries(skyline android perfetto fmt lz4_static tzcode oboe vkma mbedcrypto opus)
 target_compile_options(skyline PRIVATE -Wall -Wno-unknown-attributes -Wno-c++20-extensions -Wno-c++17-extensions -Wno-c99-designator -Wno-reorder -Wno-missing-braces -Wno-unused-variable -Wno-unused-private-field -Wno-dangling-else)

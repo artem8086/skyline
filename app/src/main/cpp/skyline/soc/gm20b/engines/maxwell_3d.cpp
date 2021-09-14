@@ -2,7 +2,6 @@
 // Copyright © 2020 Skyline Team and Contributors (https://github.com/skyline-emu/)
 // Copyright © 2018-2020 fincs (https://github.com/devkitPro/deko3d)
 
-#include <boost/preprocessor/repeat.hpp>
 #include <soc.h>
 
 namespace skyline::soc::gm20b::engine::maxwell3d {
@@ -127,7 +126,7 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                     shadowRegisters.mme.shadowRamControl = shadowRamControl;
                 })
 
-                #define RENDER_TARGET_ARRAY(z, index, data)                               \
+                #define RENDER_TARGET_ARRAY(index)                               \
                 MAXWELL3D_ARRAY_STRUCT_STRUCT_CASE(renderTargets, index, address, high, { \
                     context.SetRenderTargetAddressHigh(index, high);                      \
                 })                                                                        \
@@ -156,11 +155,17 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                     context.SetRenderTargetBaseLayer(index, baseLayer);                   \
                 })
 
-                BOOST_PP_REPEAT(8, RENDER_TARGET_ARRAY, 0)
-                static_assert(type::RenderTargetCount == 8 && type::RenderTargetCount < BOOST_PP_LIMIT_REPEAT);
+                RENDER_TARGET_ARRAY(0)
+                RENDER_TARGET_ARRAY(1)
+                RENDER_TARGET_ARRAY(2)
+                RENDER_TARGET_ARRAY(3)
+                RENDER_TARGET_ARRAY(4)
+                RENDER_TARGET_ARRAY(5)
+                RENDER_TARGET_ARRAY(6)
+                RENDER_TARGET_ARRAY(7)
                 #undef RENDER_TARGET_ARRAY
 
-                #define VIEWPORT_TRANSFORM_CALLBACKS(z, index, data)                                      \
+                #define VIEWPORT_TRANSFORM_CALLBACKS(index)                                      \
                 MAXWELL3D_ARRAY_STRUCT_CASE(viewportTransforms, index, scaleX, {                          \
                     context.SetViewportX(index, scaleX, registers.viewportTransforms[index].translateX);  \
                 })                                                                                        \
@@ -180,20 +185,36 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                     context.SetViewportZ(index, registers.viewportTransforms[index].scaleZ, translateZ);  \
                 })
 
-                BOOST_PP_REPEAT(16, VIEWPORT_TRANSFORM_CALLBACKS, 0)
-                static_assert(type::ViewportCount == 16 && type::ViewportCount < BOOST_PP_LIMIT_REPEAT);
+                VIEWPORT_TRANSFORM_CALLBACKS(0)
+                VIEWPORT_TRANSFORM_CALLBACKS(1)
+                VIEWPORT_TRANSFORM_CALLBACKS(2)
+                VIEWPORT_TRANSFORM_CALLBACKS(3)
+                VIEWPORT_TRANSFORM_CALLBACKS(4)
+                VIEWPORT_TRANSFORM_CALLBACKS(5)
+                VIEWPORT_TRANSFORM_CALLBACKS(6)
+                VIEWPORT_TRANSFORM_CALLBACKS(7)
+                VIEWPORT_TRANSFORM_CALLBACKS(8)
+                VIEWPORT_TRANSFORM_CALLBACKS(9)
+                VIEWPORT_TRANSFORM_CALLBACKS(10)
+                VIEWPORT_TRANSFORM_CALLBACKS(11)
+                VIEWPORT_TRANSFORM_CALLBACKS(12)
+                VIEWPORT_TRANSFORM_CALLBACKS(13)
+                VIEWPORT_TRANSFORM_CALLBACKS(14)
+                VIEWPORT_TRANSFORM_CALLBACKS(15)
                 #undef VIEWPORT_TRANSFORM_CALLBACKS
 
-                #define COLOR_CLEAR_CALLBACKS(z, index, data)              \
+                #define COLOR_CLEAR_CALLBACKS(index)              \
                 MAXWELL3D_ARRAY_CASE(clearColorValue, index, {             \
                     context.UpdateClearColorValue(index, clearColorValue); \
                 })
 
-                BOOST_PP_REPEAT(4, COLOR_CLEAR_CALLBACKS, 0)
-                static_assert(4 < BOOST_PP_LIMIT_REPEAT);
+                COLOR_CLEAR_CALLBACKS(0)
+                COLOR_CLEAR_CALLBACKS(1)
+                COLOR_CLEAR_CALLBACKS(2)
+                COLOR_CLEAR_CALLBACKS(3)
                 #undef COLOR_CLEAR_CALLBACKS
 
-                #define SCISSOR_CALLBACKS(z, index, data)                                                           \
+                #define SCISSOR_CALLBACKS(index)                                                           \
                 MAXWELL3D_ARRAY_STRUCT_CASE(scissors, index, enable, {                                              \
                     context.SetScissor(index, enable ? registers.scissors[index] : std::optional<type::Scissor>{}); \
                 })                                                                                                  \
@@ -204,8 +225,22 @@ namespace skyline::soc::gm20b::engine::maxwell3d {
                     context.SetScissorVertical(index, vertical);                                                    \
                 })
 
-                BOOST_PP_REPEAT(16, SCISSOR_CALLBACKS, 0)
-                static_assert(type::ViewportCount == 16 && type::ViewportCount < BOOST_PP_LIMIT_REPEAT);
+                SCISSOR_CALLBACKS(0)
+                SCISSOR_CALLBACKS(1)
+                SCISSOR_CALLBACKS(2)
+                SCISSOR_CALLBACKS(3)
+                SCISSOR_CALLBACKS(4)
+                SCISSOR_CALLBACKS(5)
+                SCISSOR_CALLBACKS(6)
+                SCISSOR_CALLBACKS(7)
+                SCISSOR_CALLBACKS(8)
+                SCISSOR_CALLBACKS(9)
+                SCISSOR_CALLBACKS(10)
+                SCISSOR_CALLBACKS(11)
+                SCISSOR_CALLBACKS(12)
+                SCISSOR_CALLBACKS(13)
+                SCISSOR_CALLBACKS(14)
+                SCISSOR_CALLBACKS(15)
                 #undef SCISSOR_CALLBACKS
 
                 MAXWELL3D_CASE(renderTargetControl, {

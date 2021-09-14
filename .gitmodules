@@ -34,6 +34,3 @@
 [submodule "app/libraries/opus"]
 	path = app/libraries/opus
 	url = https://github.com/xiph/opus
-[submodule "app/libraries/boost"]
-	path = app/libraries/boost
-	url = https://github.com/boostorg/boost.git

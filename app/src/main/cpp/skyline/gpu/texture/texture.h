@@ -238,7 +238,7 @@ namespace skyline::gpu {
      * @brief A descriptor for a texture present in guest memory, it can be used to create a corresponding Texture object for usage on the host
      */
     struct GuestTexture {
-        using Mappings = boost::container::small_vector<span < u8>, 3>;
+        using Mappings = std::vector<span<u8>>;
 
         Mappings mappings; //!< Spans to CPU memory for the underlying data backing this texture
         texture::Dimensions dimensions;
