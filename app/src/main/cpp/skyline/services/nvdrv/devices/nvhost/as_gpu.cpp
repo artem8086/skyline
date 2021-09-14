@@ -57,7 +57,7 @@ namespace skyline::service::nvdrv::device::nvhost {
     }
 
     PosixResult AsGpu::FreeSpace(In<u64> offset, In<u32> pages, In<u32> pageSize) {
-        // TODO: implement after UNMAP
+        state.soc->gm20b.gmmu.Unmap(offset, pages * pageSize);
         return PosixResult::Success;
     }
 
